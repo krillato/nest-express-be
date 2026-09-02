@@ -5,6 +5,7 @@ import { AppService } from './app.service.js';
 import { ProductsModule } from './products/products.module.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UploadsModule } from './uploads/uploads.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -23,6 +24,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       }),
     }),
     ProductsModule,
+    UploadsModule
   ],
 })
 
