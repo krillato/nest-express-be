@@ -1,13 +1,14 @@
-# Day 12 Guide — Deploy จริง: Neon Postgres + Railway + Supabase Storage + ต่อกับ mfe-workshop
+# Day 12 Guide — Deploy จริง: Neon Postgres + Render + Supabase Storage + ต่อกับ mfe-workshop
 
 > **กฎเดิม: ไกด์นี้มีไว้ให้คุณลงมือทำเอง — ผมจะไม่แก้โค้ดในโปรเจกต์คุณให้**
 > ทุก code block คือสิ่งที่ต้อง type/run เอง
 
 เป้าหมายวันนี้: เอา `nestjs-api-ts` (Day 11, ยัง in-memory) มาต่อ **database จริง** (Postgres บน Neon), **deploy จริง**
-(Railway), เพิ่ม **อัปโหลดรูปผ่าน Supabase Storage**, แล้วให้ทั้ง `shell-nextjs` และ `widget-react19` ใน `mfe-workshop`
+(Render), เพิ่ม **อัปโหลดรูปผ่าน Supabase Storage**, แล้วให้ทั้ง `shell-nextjs` และ `widget-react19` ใน `mfe-workshop`
 เรียกใช้ API ตัวนี้จริง
 
-ตามที่เลือกไว้: **Neon** (cloud Postgres ฟรี ใช้ตัวเดียวกันทั้ง local dev และ production) + **Railway** (deploy)
+ตามที่เลือกไว้: **Neon** (cloud Postgres ฟรี ใช้ตัวเดียวกันทั้ง local dev และ production) + **Render** (deploy — เดิม
+เลือก Railway ไว้ แต่ trial หมดพอดี เปลี่ยนมา Render แทน ดูเหตุผลเต็มที่ข้อ 11)
 
 > **เปลี่ยนจาก AWS S3 → Supabase Storage:** ระหว่างทำจริง AWS ปฏิเสธ payment verification (บัตรโดนธนาคารบล็อก) —
 > เช็คแล้วว่า **Cloudflare R2 ก็ยังต้องผูกบัตรเหมือนกัน** (แม้โฆษณาว่าไม่ต้อง) แต่ **Supabase Storage ส่วนใหญ่ไม่ต้อง
@@ -43,7 +44,7 @@
    postgresql://neondb_owner:xxxxx@ep-xxxx-xxxx.us-east-2.aws.neon.tech/neondb?sslmode=require
    ```
 4. เก็บ connection string นี้ไว้ — ใช้ทั้ง local dev และใส่เป็น env var ตอน deploy จริง (Neon เป็น cloud DB อยู่แล้ว
-   local เครื่องคุณกับ Railway ต่อ database ตัวเดียวกันได้เลย ไม่ต้องมี DB คนละตัว)
+   local เครื่องคุณกับที่ deploy จริงต่อ database ตัวเดียวกันได้เลย ไม่ต้องมี DB คนละตัว)
 
 ---
 
@@ -539,20 +540,50 @@ terminal/Postman แยก
 
 ---
 
-## 11. Deploy จริงบน Railway
+## 11. Deploy จริงบน Render
 
-1. [railway.app](https://railway.app) → New Project → Deploy from GitHub repo → เลือก `nestjs-api-ts`
-2. Railway detect Node.js ให้อัตโนมัติ — ตั้งค่า Start Command เป็น `npm run start:prod` (เผื่อ detect ผิด)
-3. Settings → Variables — ใส่ env vars ชุดเดียวกับ `.env` local ทั้งหมด (`DATABASE_URL`, `JWT_SECRET`, `AWS_*`,
-   `CLIENT_ORIGIN`) — **`DATABASE_URL` ใช้ connection string เดียวกับ Neon ที่ใช้ local dev ได้เลย** เพราะเป็น cloud
-   DB อยู่แล้ว ไม่ต้องแยก DB คนละตัว
-4. รอ deploy เสร็จ → Settings → Networking → Generate Domain ได้ URL แบบ
-   `https://nestjs-api-ts-production.up.railway.app`
+> **เปลี่ยนจาก Railway → Render:** Railway free trial ($5 credit) ใช้หมดไปกับ project อื่นที่เคยลองไว้ก่อนหน้า —
+> free plan ของ Railway (หลัง trial หมด) จำกัดแค่ **1 project เท่านั้น** ถ้าอยากใช้เพิ่มต้องจ่าย Hobby plan
+> ($5/เดือน) — **Render มี free tier ที่ไม่จำกัดจำนวน project แบบนี้** (สูงสุด 25 service/workspace) และสมัครผ่านได้
+> จริงโดยไม่โดนถามบัตรเลย ขั้นตอน Railway เดิมยังเก็บไว้อ้างอิงด้านล่าง เผื่อวันหลังอยากสลับกลับหรือมีคนอ่านที่ไม่ติด
+> ปัญหานี้
+
+1. [render.com](https://render.com) → **Sign in with GitHub**
+2. **+ New** (มุมขวาบน) → **Web Service** (ไม่ใช่ Static Site/Private Service/Postgres)
+3. เชื่อม GitHub แล้วเลือก repo `nestjs-api-ts`
+4. หน้า Configure:
+   - **Region**: Singapore (ถ้ามีตัวเลือก — ใกล้สุดกับ Neon/Supabase ที่ตั้งไว้)
+   - **Branch**: `main`
+   - **Build Command**: `npm run build`
+   - **Start Command**: `npm run start:prod`
+   - **Instance Type**: **Free**
+5. เลื่อนลงหา **Environment Variables** → ใส่ env vars ชุดเดียวกับ `.env` local ทั้งหมด (`DATABASE_URL`, `JWT_SECRET`,
+   `SUPABASE_*`, `CLIENT_ORIGIN`) — **`DATABASE_URL` ใช้ connection string เดียวกับ Neon ที่ใช้ local dev ได้เลย**
+   เพราะเป็น cloud DB อยู่แล้ว ไม่ต้องแยก DB คนละตัว
+6. กด **Deploy Web Service** → รอ build เสร็จ ได้ URL แบบ `https://nestjs-api-ts.onrender.com`
 
 **ทดสอบ production จริง:**
 ```bash
+curl https://<your-app>.onrender.com/products
+```
+
+> ⚠️ **Render free tier sleep หลัง 15 นาทีไม่มีคนเรียกใช้** — request แรกหลัง sleep จะช้า 30-60 วินาที (cold start)
+> ก่อนกลับมาเร็วปกติ อย่าตกใจถ้า curl แรกช้า — ลองยิงซ้ำจะเร็วขึ้นทันที ต่างจาก Railway ที่ไม่มีพฤติกรรม sleep นี้
+
+<details>
+<summary><b>(เดิม) Deploy บน Railway — เก็บไว้อ้างอิง</b></summary>
+
+1. [railway.app](https://railway.app) → New Project → Deploy from GitHub repo → เลือก `nestjs-api-ts`
+2. Railway detect Node.js ให้อัตโนมัติ — ตั้งค่า Start Command เป็น `npm run start:prod` (เผื่อ detect ผิด)
+3. Settings → Variables — ใส่ env vars ชุดเดียวกับ `.env` local ทั้งหมด
+4. รอ deploy เสร็จ → Settings → Networking → Generate Domain ได้ URL แบบ
+   `https://nestjs-api-ts-production.up.railway.app`
+
+```bash
 curl https://<your-app>.up.railway.app/products
 ```
+
+</details>
 
 ---
 
@@ -579,31 +610,94 @@ export default async function ProductsPage() {
   )
 }
 ```
-`.env.local` ของ `shell-nextjs`: `API_URL=https://<your-app>.up.railway.app`
+`.env.local` ของ `shell-nextjs`: `API_URL=https://<your-app>.onrender.com`
 
 ---
 
 ## 13. `widget-react19` อัปโหลดรูปแบบ client-side
 
+> **ขอบเขตวันนี้:** ทดสอบ flow อัปโหลดแบบ **standalone ผ่าน `pnpm dev` ของ widget เอง** ก่อน (ไม่ผ่าน federation
+> เข้า shell) — เพราะเป้าหมายหลักของ Day 12 คือพิสูจน์ว่า client component เรียก API จริง (presign → PUT S3 → PATCH
+> DB) ได้ครบ ไม่ใช่ทบทวนกลไก Module Federation ซ้ำ (ทำไปแล้ว Day 2-6) การ federate widget นี้เข้า `shell-nextjs`
+> จริงเป็นแบบฝึกหัดเสริมท้ายข้อนี้ ไม่บังคับวันนี้
+
+สร้างไฟล์ใหม่ `apps/widget-react19/src/UploadWidget.tsx`:
 ```tsx
-async function uploadProductImage(productId: number, file: File, apiKey: string) {
-  const presignRes = await fetch(`${API_URL}/uploads/presign`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-    body: JSON.stringify({ filename: file.name, contentType: file.type }),
-  })
-  const { uploadUrl, publicUrl } = await presignRes.json()
+import { useState } from 'react'
 
-  await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+const API_URL = 'https://nest-express-be.onrender.com'   // แก้เป็น URL Render จริงของคุณ
+const API_KEY = 'test-key-123'   // ⚠️ demo เท่านั้น — จริงๆ ต้องมาจากระบบ auth ของ user ไม่ hardcode แบบนี้
 
-  await fetch(`${API_URL}/products/${productId}/image`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-    body: JSON.stringify({ imageUrl: publicUrl }),
-  })
+export default function UploadWidget({ productId }: { productId: number }) {
+  const [status, setStatus] = useState('')
+
+  async function handleUpload(file: File) {
+    setStatus('1/3 กำลังขอ presigned URL...')
+    const presignRes = await fetch(`${API_URL}/uploads/presign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+      body: JSON.stringify({ filename: file.name, contentType: file.type }),
+    })
+    const { uploadUrl, publicUrl } = await presignRes.json()
+
+    setStatus('2/3 กำลังอัปโหลดไฟล์ไป Supabase...')
+    await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+
+    setStatus('3/3 กำลังบันทึก URL ลง database...')
+    await fetch(`${API_URL}/products/${productId}/image`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+      body: JSON.stringify({ imageUrl: publicUrl }),
+    })
+
+    setStatus(`เสร็จแล้ว! ${publicUrl}`)
+  }
+
+  return (
+    <div className="rounded-card bg-white p-6 shadow-card">
+      <p className="text-sm font-semibold text-neutral-900">อัปโหลดรูปสินค้า #{productId}</p>
+      <input
+        type="file"
+        accept="image/*"
+        className="mt-2"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) handleUpload(file)
+        }}
+      />
+      {status && <p className="mt-2 text-xs text-neutral-500">{status}</p>}
+    </div>
+  )
 }
 ```
-(เรียก `PATCH /products/:id/image` ที่เพิ่มไว้แล้วในข้อ 9 ด้านบน)
+
+แก้ `apps/widget-react19/src/App.tsx` — เพิ่ม import + วางตรงไหนก็ได้ในหน้า (เช่นบนสุดของ `<section id="center">`)
+เพื่อทดสอบ:
+```tsx
+import UploadWidget from './UploadWidget'
+// ...ของเดิมทั้งหมด ไม่ต้องลบ
+
+// ในส่วน return เพิ่มบรรทัดนี้ (เช่นก่อน <section id="center">):
+<UploadWidget productId={1} />
+```
+
+**ทดสอบจริง:**
+```bash
+cd ~/road-map-30/mfe-workshop
+pnpm --filter widget-react19 dev
+```
+เปิด `http://localhost:5173` (หรือ port ที่ Vite แจ้ง) → เลือกไฟล์รูปจริง → ดู status เปลี่ยนทีละขั้น 1/3 → 2/3 → 3/3
+→ "เสร็จแล้ว!" แล้วเช็คให้ชัวร์ด้วย curl ไปที่ production API ตรงๆ:
+```bash
+curl https://nest-express-be.onrender.com/products/1
+```
+`imageUrl` ต้องเปลี่ยนเป็น URL ใหม่จากรูปที่เพิ่งอัปโหลดจริง
+
+### แบบฝึกหัดเสริม (ไม่บังคับวันนี้) — federate `UploadWidget` เข้า `shell-nextjs` จริง
+
+ถ้าอยากต่อยอด: แก้ `mount.tsx` ให้รับ `props.productId` แล้ว render `<UploadWidget productId={props.productId} />`
+แทน `<Widget />` เฉยๆ — ตรงกับ pattern "ส่ง props ผ่าน mount()" ที่ค้างไว้ตั้งแต่แบบฝึกหัด 9.2 ใน `day-03-guide.md` (Day 3)
+และเคยทำสำเร็จแล้วรอบหนึ่งใน Day 6 (ตอนส่ง `product` object ผ่าน mount ไปแสดงเป็น Product Preview Card)
 
 ---
 

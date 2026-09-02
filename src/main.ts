@@ -5,6 +5,7 @@ import { AppModule } from './app.module.js'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
+  app.enableCors({ origin: ['http://localhost:4174','http://localhost:4175', 'http://localhost:3000'] })
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 
   const config = new DocumentBuilder()
